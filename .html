@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全量生字拼写通</title>
+    <style>
+        :root { --primary: #4a90e2; --success: #27ae60; --error: #e74c3c; --bg: #f0f2f5; }
+        body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .container { max-width: 600px; width: 100%; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; box-sizing: border-box; }
+        h2 { color: #333; margin-bottom: 5px; }
+        .unit-info { color: #666; font-size: 14px; margin-bottom: 20px; }
+        select { width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; cursor: pointer; }
+        .quiz-box { min-height: 220px; margin: 10px 0; padding: 25px; border: 2px dashed #e0e0e0; border-radius: 15px; position: relative; }
+        #definition { font-size: 22px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; min-height: 30px; }
+        #pos-hint { font-style: italic; color: #7f8c8d; margin-bottom: 25px; font-size: 15px; }
+        input[type="text"] { width: 90%; padding: 15px; font-size: 20px; border: 2px solid #ddd; border-radius: 10px; text-align: center; outline: none; transition: all 0.3s; font-family: inherit; }
+        input.correct { border-color: var(--success); background-color: #f1f9f5; }
+        input.wrong { border-color: var(--error); background-color: #fff5f5; }
+        .feedback { height: 30px; margin-top: 15px; font-size: 16px; font-weight: 500; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        button { padding: 12px; border: none; border-radius: 10px; background: var(--primary); color: white; cursor: pointer; font-size: 16px; transition: opacity 0.2s; }
+        button:hover { opacity: 0.9; }
+        .stats { margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; color: #95a5a6; font-size: 14px; display: flex; justify-content: space-between; }
+        .hint-text { font-size: 12px; color: #bdc3c7; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎯 词汇全量挑战</h2>
+    <div class="unit-info">Ilha Verde Middle School (2025-2026)</div>
+    
+    <select id="unitSelector" onchange="startQuiz()">
+        <option value="u5">F5 Unit 5: The Dress (40题)</option>
+        <option value="u6">F4 Unit 6: What is a Hero? (42题)</option>
+    </select>
+
+    <div class="quiz-box">
+        <div id="definition">准备开始</div>
+        <div id="pos-hint"></div>
+        <input type="text" id="answerInput" placeholder="在此输入英文拼写..." autocomplete="off">
+        <div id="feedback" class="feedback"></div>
+        <div class="hint-text">按下回车(Enter)检查答案</div>
+    </div>
+
+    <div class="btn-group">
+        <button onclick="checkAnswer()" style="background: var(--success);">检查</button>
+        <button onclick="showHint()" style="background: #f39c12;">提示首字母</button>
+        <button onclick="nextQuestion()" style="background: #7f8c8d;">跳过此词</button>
+        <button onclick="shuffleAndStart()" style="background: #34495e;">随机乱序</button>
+    </div>
+
+    <div class="stats">
+        <span id="progress">进度: 0 / 0</span>
+        <span id="score">正确率: 100%</span>
+    </div>
+</div>
+
+<script>
+// 完整生字数据提取自 PDF 
+const wordData = {
+    u5: [
+        {en: "break the internet", pos: "v. phr.", cn: "引起網絡轟動"}, {en: "social media site", pos: "n. phr.", cn: "社群媒體網站"},
+        {en: "image", pos: "n.", cn: "圖像"}, {en: "co-worker", pos: "n", cn: "同事"},
+        {en: "instead of doing", pos: "prep phr", cn: "而不是"}, {en: "begin doing / to do", pos: "V", cn: "開始"},
+        {en: "meanwhile", pos: "adv.", cn: "(與此)同時"}, {en: "channel", pos: "V", cn: "頻道"},
+        {en: "all over the world", pos: "prep phr", cn: "全世界"}, {en: "seem to do", pos: "V", cn: "似乎;好像"},
+        {en: "argue", pos: "V", cn: "爭論;爭吵"}, {en: "crazy", pos: "adj.", cn: "荒唐的"},
+        {en: "actual", pos: "adj.", cn: "實際的"}, {en: "vision scientist", pos: "n. phr.", cn: "視覺科學家"},
+        {en: "depend on", pos: "v. phr.", cn: "取決於"}, {en: "interpret", pos: "V", cn: "詮釋;解釋"},
+        {en: "optical illusion", pos: "n. phr.", cn: "視錯覺"}, {en: "discover", pos: "V", cn: "發現"},
+        {en: "vase", pos: "n.", cn: "花瓶"}, {en: "impossible", pos: "adj.", cn: "不可能的"},
+        {en: "stair", pos: "n.", cn: "階梯:樓梯"}, {en: "psychology", pos: "n.", cn: "心理學"},
+        {en: "experience", pos: "V", cn: "經歷;體驗"}, {en: "professor", pos: "n.", cn: "教授"},
+        {en: "gorilla", pos: "n.", cn: "大猩猩"}, {en: "notice", pos: "ν", cn: "注意到;看到"},
+        {en: "look for", pos: "v. phr", cn: "尋找"}, {en: "pay attention to", pos: "v. phr", cn: "專注於"},
+        {en: "joke", pos: "n.", cn: "笑話"}, {en: "separate", pos: "adj.", cn: "單獨的"},
+        {en: "syllable", pos: "n", cn: "音節"}, {en: "blend", pos: "V", cn: "混合:融合"},
+        {en: "perception", pos: "n.", cn: "見解:感知"}, {en: "explanation", pos: "n.", cn: "解釋;說明"},
+        {en: "delighted", pos: "adj.", cn: "欣喜的"}, {en: "be able to do", pos: "v. phr.", cn: "能夠"},
+        {en: "point of view", pos: "n. phr.", cn: "觀點;看法"}, {en: "continue to do", pos: "V", cn: "繼續"},
+        {en: "fascinate", pos: "V", cn: "使著迷"}, {en: "perspective", pos: "n.", cn: "角度;觀點"}
+    ],
+    u6: [
+        {en: "define", pos: "V.", cn: "下定義"}, {en: "literature", pos: "n.", cn: "文學"},
+        {en: "religion", pos: "n.", cn: "宗教"}, {en: "around the world", pos: "adv phr", cn: "世界各地"},
+        {en: "myth", pos: "n.", cn: "神話"}, {en: "similar", pos: "adj", cn: "相似的"},
+        {en: "whether", pos: "conj.", cn: "是否;無論"}, {en: "shape", pos: "n.", cn: "形狀"},
+        {en: "detail", pos: "n.", cn: "細節"}, {en: "during", pos: "prep.", cn: "在…期間"},
+        {en: "journey", pos: "n", cn: "旅行;旅程"}, {en: "adventure", pos: "n.", cn: "冒險"},
+        {en: "outer space", pos: "n. phr.", cn: "外太空"}, {en: "at first", pos: "adv phr.", cn: "起初"},
+        {en: "safety", pos: "n", cn: "安全;平安"}, {en: "dangerous", pos: "adj.", cn: "危險的"},
+        {en: "mentor", pos: "n.", cn: "導師"}, {en: "enemy", pos: "n.", cn: "敵人"},
+        {en: "castle", pos: "n.", cn: "城堡"}, {en: "overcome", pos: "V", cn: "克服"},
+        {en: "challenge", pos: "n", cn: "挑戰"}, {en: "monster", pos: "n", cn: "怪物"},
+        {en: "solve a problem", pos: "v. phr", cn: "解決問題"}, {en: "face a fear", pos: "v. phr.", cn: "面對恐懼"},
+        {en: "strength", pos: "n", cn: "力量;體力"}, {en: "intelligence", pos: "n", cn: "智力;智慧"},
+        {en: "dragon", pos: "n.", cn: "龍"}, {en: "trust", pos: "ν", cn: "信任"},
+        {en: "succeed", pos: "V", cn: "成功"}, {en: "return", pos: "V", cn: "歸來"},
+        {en: "acquire", pos: "V", cn: "取得:獲得"}, {en: "wealth", pos: "n", cn: "財富"},
+        {en: "knowledge", pos: "n", cn: "知識;學問"}, {en: "wisdom", pos: "n", cn: "智慧"},
+        {en: "be affected by", pos: "v. phr.", cn: "受…影響"}, {en: "embarrassed", pos: "adj.", cn: "尷尬的"},
+        {en: "alive", pos: "adj.", cn: "活著的"}, {en: "struggle", pos: "n.", cn: "掙扎;鬥爭"},
+        {en: "treasure", pos: "n.", cn: "寶藏;珍寶"}, {en: "cave", pos: "n.", cn: "洞穴"},
+        {en: "stumble", pos: "V", cn: "絆腳;絆倒"}, {en: "opportunity", pos: "n", cn: "機會"}
+    ]
+};
+
+let currentWords = [];
+let currentIndex = 0;
+let correctCount = 0;
+let totalAttempts = 0;
+
+function startQuiz() {
+    const unit = document.getElementById('unitSelector').value;
+    currentWords = [...wordData[unit]];
+    currentIndex = 0;
+    correctCount = 0;
+    totalAttempts = 0;
+    showQuestion();
+}
+
+function shuffleAndStart() {
+    const unit = document.getElementById('unitSelector').value;
+    currentWords = [...wordData[unit]].sort(() => Math.random() - 0.5);
+    currentIndex = 0;
+    showQuestion();
+}
+
+function showQuestion() {
+    const word = currentWords[currentIndex];
+    const input = document.getElementById('answerInput');
+    document.getElementById('definition').innerText = word.cn;
+    document.getElementById('pos-hint').innerText = word.pos ? `[ ${word.pos} ]` : "";
+    document.getElementById('feedback').innerText = "";
+    document.getElementById('progress').innerText = `进度: ${currentIndex + 1} / ${currentWords.length}`;
+    input.value = "";
+    input.className = "";
+    input.focus();
+    updateScore();
+}
+
+function checkAnswer() {
+    const input = document.getElementById('answerInput');
+    const feedback = document.getElementById('feedback');
+    const userAns = input.value.trim().toLowerCase();
+    const correctAns = currentWords[currentIndex].en.toLowerCase();
+
+    totalAttempts++;
+    if (userAns === correctAns) {
+        input.className = "correct";
+        feedback.innerText = "太棒了，完全正确！✨";
+        feedback.style.color = "var(--success)";
+        correctCount++;
+        setTimeout(nextQuestion, 1200);
+    } else {
+        input.className = "wrong";
+        feedback.innerText = `恭喜你被开除了，回家种地去吧!!! : ${currentWords[currentIndex].en}`;
+        feedback.style.color = "var(--error)";
+    }
+    updateScore();
+}
+
+function showHint() {
+    const correctAns = currentWords[currentIndex].en;
+    document.getElementById('answerInput').value = correctAns.substring(0, 1) + "...";
+}
+
+function nextQuestion() {
+    currentIndex++;
+    if (currentIndex < currentWords.length) {
+        showQuestion();
+    } else {
+        alert(`单元练习结束！你的正确率是 ${Math.round((correctCount/currentWords.length)*100)}%`);
+        startQuiz();
+    }
+}
+
+function updateScore() {
+    if (totalAttempts === 0) return;
+    const rate = Math.round((correctCount / (currentIndex || 1)) * 100);
+    document.getElementById('score').innerText = `正确率: ${rate}%`;
+}
+
+// 绑定键盘回车
+document.getElementById('answerInput').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') checkAnswer();
+});
+
+// 默认启动第一个单元
+startQuiz();
+</script>
+
+</body>
+</html>
